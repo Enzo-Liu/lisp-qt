@@ -1,8 +1,9 @@
 (ql:quickload :qt-libs)
 (ql:quickload 'qt)
+(ql:quickload :trivial-main-thread)
 
 (defpackage :hello-qt
-  (:use :cl :qt)
+  (:use :cl :qt :trivial-main-thread)
   (:export #:main))
 
 (in-package :hello-qt)
@@ -21,7 +22,7 @@
       (#_hide label))))
 
 (defpackage :qt-tutorial-14
-  (:use :cl :qt)
+  (:use :cl :qt :trivial-main-thread)
   (:export #:main))
 
 (in-package :qt-tutorial-14)
@@ -442,7 +443,9 @@
     (new-target cannon-field)))
 
 (defun main ()
-  (with-main-window (window (make-instance 'game-board))
-    (#_setGeometry window 100 100 500 355)))
+  (call-in-main-thread #'make-qapplication)
+  (with-body-in-main-thread ()
+    (with-main-window (window (make-instance 'game-board))
+      (#_setGeometry window 100 100 500 355))))
 
 (main)
