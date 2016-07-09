@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Sat Jul  9 17:57:29 2016 (+0800)
+;; Last-Updated: Sun Jul 10 01:29:02 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 248
+;;     Update #: 407
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -47,21 +47,137 @@
 
 (ql:quickload '(qtools qtcore qtgui))
 
-(defpackage #:qtools-intro
+(defpackage #:qt-2048
   (:use #:cl+qt  :trivial-main-thread)
   (:export #:main))
 
-(in-package #:qtools-intro)
+(in-package #:qt-2048)
 (in-readtable :qtools)
 
+(defmacro board-loop ((row a b) (col c d) form &body body)
+  `(loop for row from ,a to ,b ,form
+        (loop for col from ,c to ,d ,form
+             (progn ,@body))))
 
+(defun make-board (r c)
+  (board-loop (row 1 r) (col 1 c) collect 0))
+
+(defun add-random! (board num)
+  (when (not (or (= num 0) (fullp board)))
+    (let ((row (random *row*)) (col (random *col*)))
+      (if (= (nth col (nth row board)) 0)
+          (setf (nth col (nth row board)) (if (= (random 2) 0) 2 4))
+          (add-random! board 1))))
+  (when (> num 1)
+    (add-random! board (- num 1))))
+
+(defun any (ls)
+  (cond ((= 0 (length ls)) nil)
+        ((car ls) T)
+        (T (any (cdr ls)))))
+
+(defun fullp (board) (not (any (mapcar (lambda (l) (member 0 l)) board))))
+
+(defun rotate (board) (mapcar #'reverse (apply #'mapcar (cons #'list board))))
+
+(defun rotate-180 (board) (rotate (rotate board)))
+
+(defun rotate-270 (board) (rotate (rotate-180 board)))
+
+;; left merge
+(defun merge1 (ls)
+  (cond ((<= (length ls) 1) ls)
+        ((= (car ls) (cadr ls)) (cons (* 2 (car ls)) (merge1 (cddr ls))))
+        (T (cons (car ls) (merge1 (cdr ls))))))
+
+;; filter all 0 , left merge , and then padding the 0
+(defun squeeze (ls)
+  (let* ((len (length ls))
+         (toMerge (remove 0 ls))
+         (merged (merge1 toMerge)))
+    (append merged (make-list (- len (length merged)) :initial-element 0))))
+
+(defun left-board (board)
+  (mapcar #'squeeze board))
+
+(defun right-board (board)
+  (rotate-180 (left-board (rotate-180 board))))
+
+(defun up-board (board)
+  (rotate (left-board (rotate-270 board))))
+
+(defun down-board (board)
+  (rotate-270 (left-board (rotate board))))
+
+(defun move-board (direction board)
+  (let ((new-board
+         (case direction
+           (:left (left-board board))
+           (:up (up-board board))
+           (:down (down-board board))
+           (:right (right-board board)))))
+    (if (equal new-board board) nil new-board)))
+
+(defun ended (board)
+  (not (any (mapcar (lambda (dire) (move-board dire board)) '(:left :up :down :right)))))
+
+(defun succeeded (board)
+  (any (mapcar (lambda (ls) (some (lambda (x) (>= x 2048)) ls)) board)))
+
+;;------------------------------- ui related below ----------------------
 (define-widget game (QWidget)
-  ((board :initarg :board
-          :accessor board)))
+  ((board :initarg :board :accessor board)
+   (tiles :initarg :tiles :accessor tiles)))
 
-(define-widget tile (QLabel)
-  ((value :initarg :value
-          :accessor value )))
+;; the constructor for the board-widget
+(defmethod initialize-instance :after ((game game) &key)
+  (q+ set-geometry game 100 100 500 355)
+  (q+ set-style-sheet game "QWidget{background-color: rgb(187,173,160)}")
+  (q+ set-window-title game "2048 in sbcl by qtools")
+  (add-random! (board game) 2)
+  (update-board game))
+
+(defmethod reset ((game game))
+  (setf (board game) (make-board *row* *col*))
+  (add-random! (board game) 2)
+  (update-board game))
+
+(defmethod quit ((game game)) (#_QCoreApplication::exit 0))
+
+(defmethod check-end ((game game))
+  (cond ((ended (board game))
+         (if (ask-question "Sorry" "You lost! Play again?")
+             (reset game)
+             (quit game)))
+        ((succeeded (board game))
+         (if (ask-question "Congratulations" "You won! Play again?")
+             (reset game)
+             (quit game)))
+        (T nil)))
+
+(defun ask-question (title text)
+  (let ((dialog (#_new QMessageBox)))
+    (#_setWindowTitle dialog title)
+    (#_setText dialog text)
+    (#_addButton dialog (#_QMessageBox::No))
+    (#_addButton dialog (#_QMessageBox::Yes))
+    (= (#_exec dialog) (enum-value (#_QMessageBox::Yes)))))
+
+(defmethod update-board ((game game))
+  (let ((board (board game))
+        (tiles (tiles game)))
+    (mapcar (lambda (bl tl) (mapcar #'update tl bl)) board tiles)))
+
+(define-widget tile (QLabel) ())
+
+(defmethod initialize-instance :after ((tile tile) &key)
+  (q+ set-alignment tile (q+ qt.align-center)))
+
+(defun make-tiles (r c)
+  (board-loop (row 1 r) (col 1 c) collect (make-instance 'tile)))
+
+(defparameter *col* 4)
+(defparameter *row* 4)
 
 (defparameter *style-list*
   '((0 . "background: rgb(204,192,179); border-radius: 10px;")
@@ -77,204 +193,48 @@
     (1024 . "background: rgb(210,161,68); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (2048 . "background: rgb(237.194.46); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")))
 
-(defun blur (score)
-  (let ((res (cdr (assoc score *blur-list*))))
-    (if (null res) 0 res)))
-
 (defun style (score)
   (let ((res (cdr (assoc score *style-list*))))
     (if (null res)
         "QLabel {background: rgb(47 43 37); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;}"
         (format nil "QLabel { ~a }" res))))
 
-(defun index (l row col)
-  (nth col (nth row l)))
-
-;; a macro for looping over the board
-(defmacro board-loop ((row a b) (col c d) form &body body)
-  `(loop for row from ,a to ,b ,form
-                                (loop for col from ,c to ,d ,form
-                                                             (progn ,@body))))
-;; a macro for getting a board value
-(defmacro bval (b r c)
-  `(value (index (board ,b) ,r ,c)))
-
-;; this method checks if the board is full
-(defmethod fullp ((this game))
-  (let ((full t))
-    (board-loop (row 0 3) (col 0 3) do
-      (when (= (bval this row col) 0)
-        (setf full nil)))
-    full))
-
-(defmethod left ((this game))
-  ;; assume no change, set to true on change
-  (let ((change nil))
-    ;; define a local function for shifting left once
-    (flet ((shift-left (row)
-             ;; for each column
-             (loop for col from 0 to 3 do
-               ;; when this cell is not zero
-               (when (/= (bval this row col) 0)
-                 ;; for each cell from here to 1
-                 (loop for k from col downto 1 do
-                   ;; if it can move to the right, move it
-                   (when (= (bval this row (- col k)) 0)
-                     (setf (bval this row (- col k)) (bval this row col))
-                     (setf (bval this row col) 0)
-                     (setf change t)))))))
-      ;; for each row
-      (loop for row from 0 to 3 do
-        (shift-left row)
-        ;; now we need to compact the adjacent ones
-        (loop for col from 0 to 3 do
-          ;; if it can be combined
-          (when (and (< (+ col 1) 4) (= (bval this row col) (bval this row (+ col 1))))
-            ;; combine it
-            (setf (bval this row col) (* (bval this row col) 2))
-            (setf (bval this row (+ col 1)) 0)
-            (when (/= (bval this row col) 0)
-              (setf change t))))
-        ;; check again to see if we can move things to the left
-        (shift-left row))
-      ;; whether there was any change
-      change)))
-
-;; this function rotates the board by 90 degrees counter-clockwise
-(defmethod rotate ((this game))
-  (setf (board this) (reverse (apply #'mapcar #'list (board this)))))
-
-;; to move right, rotate twice, left, rotate twice
-(defmethod right ((this game))
-  (let ((change nil))
-    (dotimes (i 2) (rotate this))
-    (setf change (left this))
-    (dotimes (i 2) (rotate this))
-    change))
-
-;; to move up, rotate once, left, rotate 3 times
-(defmethod up ((this game))
-  (let ((change nil))
-    (rotate this)
-    (setf change (left this))
-    (dotimes (i 3) (rotate this))
-    change))
-
-;; to move down rotate three times, left, rotate once
-(defmethod down ((this game))
-  (let ((change nil))
-    (dotimes (i 3) (rotate this))
-    (setf change (left this))
-    (rotate this)
-    change))
-
-;; this method adds a random 2 or 4 cell into an empty space
-(defmethod add-random ((this game) &optional (num 1))
-  (when (not (fullp this))
-    (let ((row (random 4)) (col (random 4)))
-      (if (= (bval this row col) 0)
-          (setf (value (nth col (nth row (board this)))) (if (= (random 2) 0) 2 4))
-          (add-random this))))
-  (when (> num 1)
-    (add-random this (- num 1))))
-
-(defmethod initialize-instance :after ((tile tile) &key)
-  (q+ set-alignment tile (q+ qt.align-center)))
-
-(defmethod update-board ((this game))
-  (board-loop (row 0 3) (col 0 3) do
-    (update (index (board this) row col))))
-
-;; the constructor for the board-widget
-(defmethod initialize-instance :after ((game game) &key)
-  (q+ set-geometry game 100 100 500 355)
-  (q+ set-style-sheet game "QWidget{background-color: rgb(187,173,160)}")
-  (q+ set-window-title game "2048 in sbcl by qtools")
-  (add-random game 2)
-  (update-board game))
+(defun direction (event)
+  (cond ((= (#_key event) (enum-value (#_Qt::Key_Left))) :left)
+        ((= (#_key event) (enum-value (#_Qt::Key_Up))) :up)
+        ((= (#_key event) (enum-value (#_Qt::Key_Right))) :right)
+        ((= (#_key event) (enum-value (#_Qt::Key_Down))) :down)
+        (t nil)))
 
 (define-override (game key-press-event) (event)
-  (when (cond ((= (#_key event) (enum-value (#_Qt::Key_Left))) (left game))
-              ((= (#_key event) (enum-value (#_Qt::Key_Up))) (up game))
-              ((= (#_key event) (enum-value (#_Qt::Key_Right))) (right game))
-              ((= (#_key event) (enum-value (#_Qt::Key_Down))) (down game))
-              (t nil))
-    (add-random game 1)
-    (update-board game)
-    (check-end game)))
+  (let ((board (move-board (direction event) (board game))))
+    (when board
+      (setf (board game) board)
+      (add-random! board 1)
+      (update-board game)
+      (check-end game))))
 
-(defmethod update ((tile tile))
-  (let ((score (value tile)))
-    (q+ set-text tile (if (eql score 0) "" (format nil "~a" (value tile))))
-    (q+ set-style-sheet tile (style score))))
+(defun update (tile num)
+  (q+ set-text tile (if (eql num 0) "" (format nil "~a" num)))
+  (q+ set-style-sheet tile (style num)))
+
+(defun index (l row col) (nth col (nth row l)))
 
 (define-subwidget (game layout) (q+:make-qgridlayout game)
   (board-loop (row 0 3) (col 0 3) do
-    (q+ add-widget layout (index (board game) row col) row col)))
+    (q+ add-widget layout (index (tiles game) row col) row col)))
 
-;; this method returns whether the game is lost
-(defmethod lostp ((this game))
-  ;; assume that we did lose
-  (let ((lost t))
-    ;; check the verticals
-    (board-loop (row 0 3) (col 0 2) do
-      (when (= (bval this row col) (bval this row (+ col 1)))
-        (setf lost nil)))
-    ;; check the horizontals
-    (board-loop (row 0 2) (col 0 3) do
-      (when (= (bval this row col) (bval this (+ row 1) col))
-        (setf lost nil)))
-    ;; check for zeroes
-    (when (not (fullp this))
-      (setf lost nil))
-    lost))
-
-(defun ask-question (title text)
-  (let ((dialog (#_new QMessageBox)))
-    (#_setWindowTitle dialog title)
-    (#_setText dialog text)
-    (#_addButton dialog (#_QMessageBox::No))
-    (#_addButton dialog (#_QMessageBox::Yes))
-    (= (#_exec dialog) (enum-value (#_QMessageBox::Yes)))))
-
-;; this method returns whether the game is won
-(defmethod wonp ((this game))
-  (let ((won nil))
-    (board-loop (row 0 3) (col 0 3) do
-      (when (= (bval this row col) 2048)
-        (setf won t)))
-    won))
-
-(defmethod check-end ((this game))
-  (let ((quit nil) (reset nil))
-    ;; if the game is won or lost, ask to reset
-    (when (lostp this)
-      (if (ask-question "Sorry" "You lost! Play again?")
-          (setf reset t)
-          (setf quit t)))
-    (when (wonp this)
-      (if (ask-question "Congratulations" "You won! Play again?")
-          (setf reset t)
-          (setf quit t)))
-    (when reset
-      (board-loop (row 0 3) (col 0 3) do
-        (setf (bval this row col) 0))
-      (add-random this 2)
-      (update-board this))
-    (when quit
-      (#_QCoreApplication::exit 0))))
+(defparameter *game* nil)
 
 (defun main ()
   (with-main-window
       (window
-       (make-instance 'game
-                      :board (board-loop (row 0 3) (col 0 3) collect
-                               (make-instance 'tile :value 0))))))
-
+       (setf *game* (make-instance 'game
+                                   :board (make-board *row* *col*)
+                                   :tiles (make-tiles *row* *col*))))))
 (defun restart-game ()
-  (#_QCoreApplication::exit 0)
-  (with-body-in-main-thread ()
-    (main)))
+  (when *game* (quit *game*))
+  (call-in-main-thread #'main))
 
 (restart-game)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
