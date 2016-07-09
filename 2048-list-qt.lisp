@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Sat Jul  9 13:46:01 2016 (+0800)
+;; Last-Updated: Sat Jul  9 17:57:29 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 231
+;;     Update #: 248
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -72,6 +72,7 @@
     (32 . "background: rgb(245,125,95); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (64 . "background: rgb(245,95,60); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (128 . "background: rgb(237,207,114); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
+    (256 . "background: rgb(237,204,97); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (512 .  "background: rgb(237,200,80); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (1024 . "background: rgb(210,161,68); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (2048 . "background: rgb(237.194.46); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")))
@@ -83,8 +84,8 @@
 (defun style (score)
   (let ((res (cdr (assoc score *style-list*))))
     (if (null res)
-        "background: rgb(47 43 37); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;"
-        res)))
+        "QLabel {background: rgb(47 43 37); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;}"
+        (format nil "QLabel { ~a }" res))))
 
 (defun index (l row col)
   (nth col (nth row l)))
@@ -187,11 +188,10 @@
 ;; the constructor for the board-widget
 (defmethod initialize-instance :after ((game game) &key)
   (q+ set-geometry game 100 100 500 355)
-  (q+ set-style-sheet game "background-color: rgb(187,173,160)")
+  (q+ set-style-sheet game "QWidget{background-color: rgb(187,173,160)}")
   (q+ set-window-title game "2048 in sbcl by qtools")
   (add-random game 2)
-  (update-board game)
-  )
+  (update-board game))
 
 (define-override (game key-press-event) (event)
   (when (cond ((= (#_key event) (enum-value (#_Qt::Key_Left))) (left game))
