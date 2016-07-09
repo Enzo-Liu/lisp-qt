@@ -443,9 +443,9 @@
     (new-target cannon-field)))
 
 (defun main ()
-  (call-in-main-thread #'make-qapplication)
-  (with-body-in-main-thread ()
-    (with-main-window (window (make-instance 'game-board))
-      (#_setGeometry window 100 100 500 355))))
+  (with-main-window (window (make-instance 'game-board))
+    (#_setGeometry window 100 100 500 355)))
 
-(main)
+(defun test ()
+  (with-body-in-main-thread ()
+    (main)))
