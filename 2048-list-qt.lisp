@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Mon Jul 11 17:20:33 2016 (+0800)
+;; Last-Updated: Mon Jul 11 22:40:32 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 510
+;;     Update #: 560
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -47,6 +47,7 @@
 
 (ql:quickload '(qtools qtcore qtgui))
 (load "./2048.lisp")
+(load "./2048-ai.lisp")
 
 (defpackage #:qt-2048
   (:use #:cl+qt  :trivial-main-thread #:game-2048 #:ai-2048)
@@ -60,7 +61,9 @@
 
 (define-widget game (QWidget)
   ((board :initarg :board :accessor board)
-   (tiles :initarg :tiles :accessor tiles)))
+   (tiles :initarg :tiles :accessor tiles)
+   (layout :initarg :layout :accessor layout)
+   ))
 
 ;; the constructor for the board-widget
 (defmethod initialize-instance :after ((game game) &key)
@@ -177,6 +180,7 @@
   (q+ set-style-sheet tile (style num)))
 
 (define-subwidget (game layout) (q+:make-qgridlayout game)
+  (setf (layout game) layout)
   (board-loop row col do
     (q+ add-widget layout (board-value row col (tiles game)) row col)))
 
@@ -194,18 +198,28 @@
   (call-in-main-thread #'main))
 
 
-(defparameter *ai* (make-instance 'dumb-ai))
+(defmacro new-ai-slot (ai-name r c)
+  (let ((name (format nil "~a" ai-name)))
+    `(progn
+       (define-subwidget (game ,ai-name) (q+:make-qpushbutton ,name game)
+         (q+ add-widget (layout game) ,ai-name ,r ,c)
+         )
+       (define-slot (game ,(make-symbol (format nil "try-~a"  ai-name))) ()
+         (declare (connected ,ai-name (pressed)))
+         (sb-thread:make-thread
+          (lambda () (try-ai (make-instance ',ai-name))))))))
 
-(defun try-ai ()
-  (let ((direction (next-direction *ai* (board *game*))))
+(new-ai-slot hurs-ai 5 1)
+(new-ai-slot dumb-ai 5 2)
+
+(defun try-ai (ai)
+  (let ((direction (next-direction ai (board *game*))))
     (when direction
       (move *game* direction)
       (sleep 0.1)
-      (try-ai))))
+      (try-ai ai))))
 
 (restart-game)
-
-(when *game* (try-ai))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 2048-list-qt.lisp ends here
