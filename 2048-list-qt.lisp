@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Mon Jul 11 22:40:32 2016 (+0800)
+;; Last-Updated: Tue Jul 12 01:03:31 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 560
+;;     Update #: 622
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -62,12 +62,11 @@
 (define-widget game (QWidget)
   ((board :initarg :board :accessor board)
    (tiles :initarg :tiles :accessor tiles)
-   (layout :initarg :layout :accessor layout)
-   ))
+   (ai :initarg :ai :accessor ai)))
 
 ;; the constructor for the board-widget
 (defmethod initialize-instance :after ((game game) &key)
-  (q+ set-geometry game 100 100 500 355)
+  (q+ set-geometry game 100 100 500 555)
   (q+ set-style-sheet game "QWidget{background-color: rgb(187,173,160)}")
   (q+ set-window-title game "2048 in sbcl by qtools")
   (setf (board game) (add-random (board game) 2))
@@ -179,10 +178,15 @@
   (q+ set-text tile (if (eql num 0) "" (format nil "~a" num)))
   (q+ set-style-sheet tile (style num)))
 
-(define-subwidget (game layout) (q+:make-qgridlayout game)
-  (setf (layout game) layout)
+(define-subwidget (game layout) (q+:make-qvboxlayout game))
+
+(define-subwidget (game buttons) (q+:make-qhboxlayout)
+  (q+ add-layout layout buttons))
+
+(define-subwidget (game grid) (q+:make-qgridlayout)
+  (q+ insert-layout layout 0 grid)
   (board-loop row col do
-    (q+ add-widget layout (board-value row col (tiles game)) row col)))
+    (q+ add-widget grid (board-value row col (tiles game)) row col)))
 
 (unless (boundp '*game*)
   (defparameter *game* nil))
@@ -192,25 +196,34 @@
       (window
        (setf *game* (make-instance 'game
                                    :board (make-board *row* *col*)
-                                   :tiles (make-tiles *row* *col*))))))
+                                   :tiles (make-tiles *row* *col*)
+                                   :ai 'dumb-ai)))))
+
 (defun restart-game ()
   (when *game* (quit *game*))
   (call-in-main-thread #'main))
 
+(define-subwidget (game run) (q+:make-qpushbutton "run" game)
+  (q+ add-widget buttons run))
 
-(defmacro new-ai-slot (ai-name r c)
-  (let ((name (format nil "~a" ai-name)))
-    `(progn
-       (define-subwidget (game ,ai-name) (q+:make-qpushbutton ,name game)
-         (q+ add-widget (layout game) ,ai-name ,r ,c)
-         )
-       (define-slot (game ,(make-symbol (format nil "try-~a"  ai-name))) ()
-         (declare (connected ,ai-name (pressed)))
-         (sb-thread:make-thread
-          (lambda () (try-ai (make-instance ',ai-name))))))))
+(define-slot (game change-ai) ((ai string))
+  (setf (ai game) ai))
 
-(new-ai-slot hurs-ai 5 1)
-(new-ai-slot dumb-ai 5 2)
+(define-slot (game run-with-ai) ()
+  (declare (connected run (pressed)))
+  (sb-thread:make-thread
+   (lambda () (try-ai (make-instance (ai game))))))
+
+(defmacro new-ai-slot (ai-name text)
+  `(progn
+     (define-subwidget (game ,ai-name) (q+:make-qradiobutton ,text game)
+       (q+ add-widget buttons ,ai-name))
+     (define-slot (game ,(make-symbol (format nil "change-to-~a"  ai-name))) ()
+       (declare (connected ,ai-name (pressed)))
+       (setf (ai game) ',ai-name))))
+
+(new-ai-slot max-ai "choose one direction by max value generated")
+(new-ai-slot dumb-ai "choose one direction randomly")
 
 (defun try-ai (ai)
   (let ((direction (next-direction ai (board *game*))))

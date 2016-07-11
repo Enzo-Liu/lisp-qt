@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Mon Jul 11 21:11:05 2016 (+0800)
+;; Last-Updated: Tue Jul 12 01:07:55 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 480
+;;     Update #: 582
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -49,7 +49,7 @@
   (:use #:cl #:common-2048 #:game-2048)
   (:export #:next-direction
            #:dumb-ai
-           #:hurs-ai))
+           #:max-ai))
 
 (in-package #:ai-2048)
 
@@ -57,6 +57,9 @@
 
 (defun available-direction (board direction)
   (move-board direction board))
+
+(defun available-directions (board)
+  (remove-if-not (lambda (d) (available-direction board d)) *actions*))
 
 (defun empty-cells (board)
   (length (empty-pos board)))
@@ -71,81 +74,73 @@
 (defclass dumb-ai (ai) () (:documentation "an dumb ai implementation"))
 
 (defmethod next-direction ((ai dumb-ai) board)
-  (let ((choices (remove-if-not (lambda (d) (move-board d board)) *actions*)))
-    (unless (null choices)
-      (nth (random (length choices)) choices))))
+  (random-action board))
 
+(defun random-action (board)
+  (let ((choices (available-directions board)))
+    (unless (null choices) (nth (random (length choices)) choices))))
 
-(defclass hurs-ai (ai) () (:documentation "an ai based by expectation of heuristic score of the board"))
+(defclass hurs-ai (ai) () (:documentation "an ai based by expectation of heuristic value of the board"))
+
+(defgeneric perf (hurs-ai) (:documentation "the hurs function"))
+(defgeneric depth (hurs-ai) (:documentation "the calculate depth"))
+
+(defclass max-ai (hurs-ai) () (:documentation "an ai based by expectation of max value generated of the board"))
+
+(defun max-score (board) (apply #'max (flatten board)))
+(defmethod perf ((ai max-ai)) #'max-score)
+(defmethod depth ((ai max-ai)) 2)
 
 (defmethod next-direction ((ai hurs-ai) board)
-  (let ))
+  (let* ((ordered (most-score board (depth ai) 1.0 (perf ai)))
+         (best (car ordered)))
+    (if (= 0 (car best))
+        (random-action board)
+        (cdr best))))
 
-(defun next-direction-dumb (board)
-  (caar (sort (availables 2 board)
-              #'<
-              :key
-              (lambda (ds) (avg-next-performance (move-boards ds board))))))
+(defun most-score (board depth posi perf)
+  (sort (mapcar (lambda (dire) (score board dire depth posi perf)) *actions*)
+        #'> :key #'car))
 
-(defun availables (deepth board)
-  (remove-if-not (lambda (as) (move-boards as board)) (actions deepth)))
+(defun score (board d depth posi perf)
+  (let ((next (move-board d board)))
+    (if next
+        (cons (score-board next (1- depth) posi perf) d)
+        (cons 0 d))))
 
-(defun actions (deepth)
-  (if (= deepth 0)
-      (mapcar (lambda (a) (cons a nil)) *actions*)
-      (mapcan (lambda (as) (mapcar (lambda (a) (cons a as)) *actions*))
-              (actions (1- deepth)))))
+(defparameter *posi-4* (/ *limit-4* *base*))
+(defparameter *posi-2* (/ (- *base* *limit-4*) *base*))
 
-(defun move-boards (ds b)
-  (if (null b) nil
-      (if (null ds)
-          b
-          (move-boards (cdr ds) (move-board (car ds) b)))))
+(defun score-board (board depth posi perf)
+  (apply #'+
+         (mapcar (lambda (pos)
+                   (+ (* *posi-2*
+                         (score-real (add-random-at-pos board
+                                                        (car pos)
+                                                        (cdr pos)
+                                                        2)
+                                     depth
+                                     (* *posi-2* posi)
+                                     perf))
+                      (* *posi-4*
+                         (score-real (add-random-at-pos board
+                                                        (car pos)
+                                                        (cdr pos)
+                                                        4)
+                                     depth
+                                     (* *posi-4* posi)
+                                     perf))))
+                 (empty-pos board))))
 
+(defun score-real (board depth posi perf)
+  (let ((score (funcall perf board)))
+    (if (or (= 0 depth) (< posi 0.005))
+        score
+        (let ((best (car (most-score board depth posi perf))))
+          (if (= 0 (car best))
+              0
+              (/ (+ score (car best)) 2))))))
 
-;; 数量少
-;; 距离近
-;;
-(defun average (&rest args)
-  (when args
-    (floor (apply #'+ args) (length args))))
-
-(defun avg-next-performance (board)
-  (let ((choices (empty-pos board)))
-    (apply #'average (mapcar
-                      (lambda (p) (min (performance (add-random-at-pos board (car p) (cdr p) 2))
-                                  (performance (add-random-at-pos board (car p) (cdr p) 4))
-                                  4))
-                      choices))))
-
-(defun performance (board)
-  (let ((num (apply #'+ (mapcar (lambda (l) (length (remove 0 l))) board)))
-        (dist (distance board))
-        (order (order board)))
-    (+  (* order dist) (expt 2 num))))
-
-(defun order (board)
-  (+ (sorted (rotate board)) (sorted board)))
-
-(defun sorted (board)
-  (apply #'+ (mapcar (lambda (ls) (if (equal ls (sort (copy-list ls) #'>)) 0 (apply #'+ ls))) board)))
-
-(defun distance (board)
-  (board-loop row col sum (distance-v row col (board-value row col board) board)))
-
-(defun distance-v (r c v board)
-  (let ((weight (+ r c)))
-    (* weight (if (= v 0) 1 v)
-       (+
-        (distance-2 v (board-value (1+ r) c board))
-        (distance-2 v (board-value (1- r) c board))
-        (distance-2 v (board-value r (1- c) board))
-        (distance-2 v (board-value r (1+ c) board))))))
-
-(defun distance-2 (v1 v2)
-  (cond ((= v1 0) 4096)
-        ((= v2 0) 0)
-        (T (* (log v1 2) (abs (- (log v1 2) (log v2 2)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 2048.lisp ends here

@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Mon Jul 11 21:09:54 2016 (+0800)
+;; Last-Updated: Mon Jul 11 23:31:02 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 472
+;;     Update #: 474
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -60,6 +60,7 @@
            #:down-board
            #:board-loop
            #:right-board
+           #:flatten
            #:*base*
            #:*limit-4*))
 (in-package #:common-2048)
