@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Sun Jul 10 21:45:42 2016 (+0800)
+;; Last-Updated: Mon Jul 11 17:20:33 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 480
+;;     Update #: 510
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -55,13 +55,8 @@
 (in-package #:qt-2048)
 (in-readtable :qtools)
 
-(defmacro board-loop ((row a b) (col c d) form &body body)
-  `(loop for row from ,a to ,b ,form
-        (loop for col from ,c to ,d ,form
-             (progn ,@body))))
-
 (defun make-board (r c)
-  (board-loop (row 1 r) (col 1 c) collect 0))
+  (board-loop row col collect 0))
 
 (define-widget game (QWidget)
   ((board :initarg :board :accessor board)
@@ -145,7 +140,7 @@
   (q+ set-alignment tile (q+ qt.align-center)))
 
 (defun make-tiles (r c)
-  (board-loop (row 1 r) (col 1 c) collect (make-instance 'tile)))
+  (board-loop row col collect (make-instance 'tile)))
 
 (defparameter *style-list*
   '((0 . "background: rgb(204,192,179); border-radius: 10px;")
@@ -181,11 +176,9 @@
   (q+ set-text tile (if (eql num 0) "" (format nil "~a" num)))
   (q+ set-style-sheet tile (style num)))
 
-(defun index (l row col) (nth col (nth row l)))
-
 (define-subwidget (game layout) (q+:make-qgridlayout game)
-  (board-loop (row 0 (1- *row*)) (col 0 (1- *col*)) do
-    (q+ add-widget layout (index (tiles game) row col) row col)))
+  (board-loop row col do
+    (q+ add-widget layout (board-value row col (tiles game)) row col)))
 
 (unless (boundp '*game*)
   (defparameter *game* nil))
@@ -201,14 +194,17 @@
   (call-in-main-thread #'main))
 
 
+(defparameter *ai* (make-instance 'dumb-ai))
+
 (defun try-ai ()
-  (let ((direction (next-direction (board *game*))))
+  (let ((direction (next-direction *ai* (board *game*))))
     (when direction
       (move *game* direction)
       (sleep 0.1)
       (try-ai))))
 
 (restart-game)
+
 (when *game* (try-ai))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

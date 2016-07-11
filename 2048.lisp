@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Sun Jul 10 22:05:42 2016 (+0800)
+;; Last-Updated: Mon Jul 11 18:04:09 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 384
+;;     Update #: 445
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -51,26 +51,32 @@
            #:rotate-180
            #:rotate-270
            #:squeeze
-           #:value
+           #:board-value
            #:left-board
            #:up-board
            #:*row*
            #:*col*
            #:empty-pos
            #:down-board
+           #:board-loop
            #:right-board))
 (in-package #:common-2048)
+
+(defmacro board-loop (row col form &body body)
+  `(loop for ,row from 0 to (1- *row*) ,form
+        (loop for ,col from 0 to (1- *col*) ,form
+             (progn ,@body))))
 
 (defparameter *col* 4)
 (defparameter *row* 4)
 
-(defun empty-pos (board)
-  (loop for row from 0 to (1- *row*) append
-       (loop for col from 0 to (1- *col*)
-          when (= 0 (value row col board))
-          collect (cons row col))))
+(defun flatten (l)
+  (loop for a in l appending a))
 
-(defun value (row col board)
+(defun empty-pos (board)
+  (remove nil (flatten (board-loop row col collect (when (= 0 (board-value row col board)) (cons row col))))))
+
+(defun board-value (row col board)
   (cond ((< row 0) 0)
         ((>= row *row*) 0)
         ((>= col *col*) 0)
@@ -113,6 +119,8 @@
            #:add-random-at-pos
            #:move-board
            #:ended
+           #:board-loop
+           #:board-value
            #:succeeded
            #:*row*
            #:*col*))
@@ -127,11 +135,9 @@
 (defun fullp (board) (not (any (mapcar (lambda (l) (member 0 l)) board))))
 
 (defun add-random-at-pos (board r c v)
-  (loop for row from 0 to (1- *row*) collect
-       (loop for col from 0 to (1- *col*) collect
-            (if (and (= row r) (= col c))
-                v
-                (value row col board)))))
+  (board-loop row col collect (if (and (= row r) (= col c))
+                                  v
+                                  (board-value row col board))))
 
 (defun add-random (board num)
   (let ((choices (empty-pos board)))
@@ -139,8 +145,9 @@
         board
         (add-random
          (let* ((ri (random (length choices)))
-                (r (car (nth ri choices)))
-                (c (cdr (nth ri choices))))
+                (choice (nth ri choices))
+                (r (car choice))
+                (c (cdr choice)))
            (add-random-at-pos board r c (if (= 0 (random 3)) 4 2)))
          (1- num)))))
 
@@ -165,11 +172,31 @@
 
 (defpackage #:ai-2048
   (:use #:cl #:common-2048 #:game-2048)
-  (:export #:next-direction))
+  (:export #:next-direction
+           #:dumb-ai
+           ))
 (in-package #:ai-2048)
 
-(defun next-direction (board)
-  (caar (sort (availables 1 board)
+(defparameter *actions* '(:left :right :up :down))
+
+(defun available-direction (board direction)
+  (move-board direction board))
+
+(defun empty-cells (board)
+  (length (empty-pos board)))
+
+(defclass ai () () (:documentation "an ai interface"))
+
+(defgeneric next-direction (ai board)
+  (:documentation "the ai interface to provide next-direction based by current board."))
+
+(defclass dumb-ai (ai) () (:documentation "an dumb ai implementation"))
+
+(defmethod next-direction ((ai dumb-ai) board)
+  (next-direction-dumb board))
+
+(defun next-direction-dumb (board)
+  (caar (sort (availables 2 board)
               #'<
               :key
               (lambda (ds) (avg-next-performance (move-boards ds board))))))
@@ -189,7 +216,6 @@
           b
           (move-boards (cdr ds) (move-board (car ds) b)))))
 
-(defparameter *actions* '(:left :right :up :down))
 
 ;; 数量少
 ;; 距离近
@@ -210,39 +236,30 @@
   (let ((num (apply #'+ (mapcar (lambda (l) (length (remove 0 l))) board)))
         (dist (distance board))
         (order (order board)))
-    (+  (* 1024 order) dist
-        (if (> num (* 3 (floor (* *row* *col*) 4)))
-            (expt 2 num)
-            (* 32 num)))
-    order))
+    (+  (* order dist) (expt 2 num))))
 
 (defun order (board)
-  (+ (sorted (rotate-270  board)) (sorted board)))
+  (+ (sorted (rotate board)) (sorted board)))
 
 (defun sorted (board)
   (apply #'+ (mapcar (lambda (ls) (if (equal ls (sort (copy-list ls) #'>)) 0 (apply #'+ ls))) board)))
 
 (defun distance (board)
-  (loop for row from 0 to (1- *row*) sum
-       (loop for col from 0 to (1- *col*) sum
-            (distance-v row col (value row col board) board))))
+  (board-loop row col sum (distance-v row col (board-value row col board) board)))
 
 (defun distance-v (r c v board)
   (let ((weight (+ r c)))
-    (* weight
+    (* weight (if (= v 0) 1 v)
        (+
-        (distance-2 v (value (1+ r) c board))
-        (distance-2 v (value (1- r) c board))
-        (distance-2 v (value r (1- c) board))
-        (distance-2 v (value r (1+ c) board))))))
+        (distance-2 v (board-value (1+ r) c board))
+        (distance-2 v (board-value (1- r) c board))
+        (distance-2 v (board-value r (1- c) board))
+        (distance-2 v (board-value r (1+ c) board))))))
 
 (defun distance-2 (v1 v2)
-  (cond ((= v1 0) 0)
+  (cond ((= v1 0) 4096)
         ((= v2 0) 0)
         (T (* (log v1 2) (abs (- (log v1 2) (log v2 2)))))))
-
-(defun available-direction (board direction)
-  (move-board direction board))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 2048.lisp ends here
