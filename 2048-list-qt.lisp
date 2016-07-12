@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 11:13:56 2016 (+0800)
+;; Last-Updated: Tue Jul 12 16:17:45 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 631
+;;     Update #: 635
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -152,16 +152,16 @@
     (16 . "background: rgb(245,150,100); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (32 . "background: rgb(245,125,95); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
     (64 . "background: rgb(245,95,60); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
-    (128 . "background: rgb(237,207,114); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
-    (256 . "background: rgb(237,204,97); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
-    (512 .  "background: rgb(237,200,80); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
-    (1024 . "background: rgb(210,161,68); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")
-    (2048 . "background: rgb(237.194.46); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;")))
+    (128 . "background: rgb(237,207,114); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 32pt;")
+    (256 . "background: rgb(237,204,97); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 32pt;")
+    (512 .  "background: rgb(237,200,80); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 32pt;")
+    (1024 . "background: rgb(210,161,68); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;")
+    (2048 . "background: rgb(237.194.46); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;")))
 
 (defun style (num)
   (let ((res (cdr (assoc num *style-list*))))
     (if (null res)
-        "QLabel {background: rgb(47 43 37); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 40pt;}"
+        "QLabel {background: rgb(47 43 37); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;}"
         (format nil "QLabel { ~a }" res))))
 
 (defun direction (event)

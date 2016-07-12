@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 11:58:20 2016 (+0800)
+;; Last-Updated: Tue Jul 12 16:19:37 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 692
+;;     Update #: 698
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -140,16 +140,13 @@
          (empty (empty-cells board))
          (max (apply #'max (flatten board)))
          (merges (merge-cells board))
-         (elems (flatten board))
-         (dicreate (- (length elems) (length (remove-duplicates elems))))
-         (score (+ (* 256 merges)
+         (score (+ 1000 (* 256 merges)
                    (* 3 (if (= max 0) 1  max))
                    (* 256 empty)
-                   (* -2 order)
-                   (* -30 dicreate))))
+                   (* -3 order))))
     (format T
-            "empty: ~a, order: ~a,  max: ~a, merges: ~a, dicreate: ~a, score: ~a ~%"
-            empty order max merges dicreate score)
+            "empty: ~a, order: ~a,  max: ~a, merges: ~a, score: ~a ~%"
+            empty order max merges score)
     score))
 
 (defmethod perf ((ai hurs-score-ai)) #'hurs-all-score)
