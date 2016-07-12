@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Mon Jul 11 23:31:02 2016 (+0800)
+;; Last-Updated: Tue Jul 12 11:45:55 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 474
+;;     Update #: 475
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -153,7 +153,7 @@
                 (choice (nth ri choices))
                 (r (car choice))
                 (c (cdr choice)))
-           (add-random-at-pos board r c (if (< *limit-4* (random *base*)) 4 2)))
+           (add-random-at-pos board r c (if (> *limit-4* (random *base*)) 4 2)))
          (1- num)))))
 
 ;; left merge

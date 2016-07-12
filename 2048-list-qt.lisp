@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 07:29:55 2016 (+0800)
+;; Last-Updated: Tue Jul 12 11:13:56 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 622
+;;     Update #: 631
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -180,8 +180,11 @@
 
 (define-subwidget (game layout) (q+:make-qvboxlayout game))
 
-(define-subwidget (game buttons) (q+:make-qhboxlayout)
-  (q+ add-layout layout buttons))
+(define-subwidget (game ai) (q+:make-qhboxlayout)
+  (q+ add-layout layout ai))
+
+(define-subwidget (game buttons) (q+:make-qvboxlayout)
+  (q+ add-layout ai buttons))
 
 (define-subwidget (game grid) (q+:make-qgridlayout)
   (q+ insert-layout layout 0 grid)
@@ -204,7 +207,7 @@
   (call-in-main-thread #'main))
 
 (define-subwidget (game run) (q+:make-qpushbutton "run" game)
-  (q+ add-widget buttons run))
+  (q+ add-widget ai run))
 
 (define-slot (game change-ai) ((ai string))
   (setf (ai game) ai))
@@ -224,6 +227,9 @@
 
 (new-ai-slot max-ai "choose one direction by max value generated")
 (new-ai-slot dumb-ai "choose one direction randomly")
+(new-ai-slot max-depth-ai "choose by max value generated in depth ")
+(new-ai-slot hurs-score-ai "choose by hurs score")
+(new-ai-slot hurs-depth-ai "choose by hurs score in depth ")
 
 (defun try-ai (ai)
   (let ((direction (next-direction ai (board *game*))))
