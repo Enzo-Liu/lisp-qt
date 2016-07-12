@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 18:49:00 2016 (+0800)
+;; Last-Updated: Wed Jul 13 00:09:04 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 715
+;;     Update #: 734
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -146,14 +146,18 @@
   (let* ((order (apply #'+
                        (mapcar
                         (lambda (l) (if (equal l (sort (copy-list l) #'>))
-                                   0 (apply #'max l)))
+                                   0 (apply #'+ l)))
                         board)))
          (empty (empty-cells board))
-         (max (apply #'max (flatten board)))
+         (praise (apply #'+ (mapcar (lambda (v) (if (= v 0) 0
+                                               (expt (log v 2) 4)))
+                                    (flatten board))))
          (merges (merge-cells board))
+         (fail (if (null (available-directions board)) -100000 0))
          (dist (dist board))
-         (score (+ 10000 (* 512 merges)
-                   (* 2 (if (= max 0) 1  max))
+         (score (+ 10000
+                   fail
+                   praise
                    (* -2 dist)
                    (* 512 empty)
                    (* -2 order))))
@@ -165,7 +169,7 @@
 (defmethod perf ((ai hurs-score-ai)) #'hurs-all-score)
 
 (defclass hurs-depth-ai (hurs-ai)
-  ((depth :initform 3 :initarg :depth :accessor depth))
+  ((depth :initform 6 :initarg :depth :accessor depth))
   (:documentation "an ai based by expectation of max value generated of the board"))
 
 (defmethod perf ((ai hurs-depth-ai))
@@ -177,8 +181,10 @@
 
 (defun max-depth-score (depth board posi hurs-score)
   (let ((score (funcall hurs-score board)))
-    (if (or (= depth 0) (< posi 0.0001) (< (non-empty-cells board)
-                                           (floor (* *row* *col*) 2)))
+    (if (or (= depth 0) (< posi 0.0001)
+            (and (< (apply #'max (flatten board)) 1024)
+                 (< (non-empty-cells board)
+                    (* *row* *col* 0.70))))
         score
         (let* ((choices (empty-pos board))
                (scores  (loop for pos in choices sum
@@ -192,7 +198,7 @@
                                                            (* posi *posi-2*)
                                                            hurs-score)))))
                (n (length choices)))
-          (if (= 0 n) 0 (/ (+ score (floor scores n)) 2))))))
+          (if (= 0 n) 0 (+ score (floor scores n)))))))
 
 ;; (defun memoize (fn)
 ;;   (let ((cache (make-hash-table :test #'equal)))
