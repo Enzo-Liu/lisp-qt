@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 18:42:59 2016 (+0800)
+;; Last-Updated: Tue Jul 12 19:04:48 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 637
+;;     Update #: 639
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -157,12 +157,12 @@
     (256 . "background: rgb(237,204,97); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 32pt;")
     (512 .  "background: rgb(237,200,80); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 32pt;")
     (1024 . "background: rgb(210,161,68); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;")
-    (2048 . "background: rgb(237.194.46); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;")))
+    (2048 . "background: rgb(237,194,46); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;")))
 
 (defun style (num)
   (let ((res (cdr (assoc num *style-list*))))
     (if (null res)
-        "QLabel {background: rgb(47 43 37); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;}"
+        "QLabel {background: rgb(47,43,37); color: rgb(255,255,255); font: bold; border-radius: 10px; font: 24pt;}"
         (format nil "QLabel { ~a }" res))))
 
 (defun direction (event)
