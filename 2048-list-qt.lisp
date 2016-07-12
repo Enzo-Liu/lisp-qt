@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 16:17:45 2016 (+0800)
+;; Last-Updated: Tue Jul 12 18:42:59 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 635
+;;     Update #: 637
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -111,7 +111,8 @@
   (cond ((ended (board game))
          (notify-game-fail game))
         ((succeeded (board game))
-         (notify-game-success game))
+         ;;(notify-game-success game)
+         )
         (T nil)))
 
 (defun ask-question (title text)

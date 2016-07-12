@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 16:19:37 2016 (+0800)
+;; Last-Updated: Tue Jul 12 18:49:00 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 698
+;;     Update #: 715
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -63,6 +63,9 @@
 
 (defun available-directions (board)
   (remove-if-not (lambda (d) (available-direction board d)) *actions*))
+
+(defun non-empty-cells (board)
+  (length (remove 0 (flatten board))))
 
 (defun empty-cells (board)
   (if (null board)
@@ -131,6 +134,14 @@
   (+ (hurs-all-score-1 board)
      (hurs-all-score-1 (rotate-270 board))))
 
+(defun dist (board)
+  (apply #'+ (mapcar (lambda (ls) (apply #'+ (maplist (lambda (l)
+                                                   (if (< (length l) 2)
+                                                       0
+                                                       (abs (- (car l) (cadr l)))))
+                                                 ls)))
+                     board)))
+
 (defun hurs-all-score-1 (board)
   (let* ((order (apply #'+
                        (mapcar
@@ -140,13 +151,15 @@
          (empty (empty-cells board))
          (max (apply #'max (flatten board)))
          (merges (merge-cells board))
-         (score (+ 1000 (* 256 merges)
-                   (* 3 (if (= max 0) 1  max))
-                   (* 256 empty)
-                   (* -3 order))))
-    (format T
-            "empty: ~a, order: ~a,  max: ~a, merges: ~a, score: ~a ~%"
-            empty order max merges score)
+         (dist (dist board))
+         (score (+ 10000 (* 512 merges)
+                   (* 2 (if (= max 0) 1  max))
+                   (* -2 dist)
+                   (* 512 empty)
+                   (* -2 order))))
+    ;; (format T
+    ;;         "empty: ~a, order: ~a, dist: ~a  max: ~a, merges: ~a, score: ~a ~%"
+    ;;         empty order dist max merges score)
     score))
 
 (defmethod perf ((ai hurs-score-ai)) #'hurs-all-score)
@@ -164,7 +177,8 @@
 
 (defun max-depth-score (depth board posi hurs-score)
   (let ((score (funcall hurs-score board)))
-    (if (or (= depth 0) (< posi 0.0001))
+    (if (or (= depth 0) (< posi 0.0001) (< (non-empty-cells board)
+                                           (floor (* *row* *col*) 2)))
         score
         (let* ((choices (empty-pos board))
                (scores  (loop for pos in choices sum
