@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 01:07:55 2016 (+0800)
+;; Last-Updated: Tue Jul 12 08:08:54 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 582
+;;     Update #: 615
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -64,6 +64,23 @@
 (defun empty-cells (board)
   (length (empty-pos board)))
 
+(defun random-action (board)
+  (let ((choices (available-directions board)))
+    (unless (null choices) (nth (random (length choices)) choices))))
+
+(defun most-score (board perf)
+  (sort (mapcar (lambda (dire) (score board dire perf)) *actions*)
+        #'> :key #'car))
+
+(defun score (board d perf)
+  (let ((next (move-board d board)))
+    (if next
+        (cons (funcall perf next) d)
+        (cons 0 d))))
+
+(defparameter *posi-4* (/ *limit-4* *base*))
+(defparameter *posi-2* (/ (- *base* *limit-4*) *base*))
+
 
 (defclass ai () () (:documentation "an ai interface"))
 
@@ -76,70 +93,61 @@
 (defmethod next-direction ((ai dumb-ai) board)
   (random-action board))
 
-(defun random-action (board)
-  (let ((choices (available-directions board)))
-    (unless (null choices) (nth (random (length choices)) choices))))
-
 (defclass hurs-ai (ai) () (:documentation "an ai based by expectation of heuristic value of the board"))
 
-(defgeneric perf (hurs-ai) (:documentation "the hurs function"))
-(defgeneric depth (hurs-ai) (:documentation "the calculate depth"))
-
-(defclass max-ai (hurs-ai) () (:documentation "an ai based by expectation of max value generated of the board"))
-
-(defun max-score (board) (apply #'max (flatten board)))
-(defmethod perf ((ai max-ai)) #'max-score)
-(defmethod depth ((ai max-ai)) 2)
-
 (defmethod next-direction ((ai hurs-ai) board)
-  (let* ((ordered (most-score board (depth ai) 1.0 (perf ai)))
+  (let* ((ordered (most-score board (perf ai)))
          (best (car ordered)))
     (if (= 0 (car best))
         (random-action board)
         (cdr best))))
 
-(defun most-score (board depth posi perf)
-  (sort (mapcar (lambda (dire) (score board dire depth posi perf)) *actions*)
-        #'> :key #'car))
+(defgeneric perf (hurs-ai) (:documentation "the hurs function"))
 
-(defun score (board d depth posi perf)
-  (let ((next (move-board d board)))
-    (if next
-        (cons (score-board next (1- depth) posi perf) d)
-        (cons 0 d))))
+(defclass max-ai (hurs-ai) () (:documentation "an ai based by expectation of max value generated of the board"))
+(defun max-score (board) (apply #'max (flatten board)))
+(defmethod perf ((ai max-ai)) #'max-score)
 
-(defparameter *posi-4* (/ *limit-4* *base*))
-(defparameter *posi-2* (/ (- *base* *limit-4*) *base*))
+(defclass max-depth-ai (hurs-ai)
+  ((depth :initform 3 :initarg :depth :accessor depth))
+  (:documentation "an ai based by expectation of max value generated of the board"))
 
-(defun score-board (board depth posi perf)
-  (apply #'+
-         (mapcar (lambda (pos)
-                   (+ (* *posi-2*
-                         (score-real (add-random-at-pos board
-                                                        (car pos)
-                                                        (cdr pos)
-                                                        2)
-                                     depth
-                                     (* *posi-2* posi)
-                                     perf))
-                      (* *posi-4*
-                         (score-real (add-random-at-pos board
-                                                        (car pos)
-                                                        (cdr pos)
-                                                        4)
-                                     depth
-                                     (* *posi-4* posi)
-                                     perf))))
-                 (empty-pos board))))
+(defmethod perf ((ai max-ai))
+  (lambda (board)
+    (max-depth-score (depth ai) board 1.0)))
 
-(defun score-real (board depth posi perf)
-  (let ((score (funcall perf board)))
-    (if (or (= 0 depth) (< posi 0.005))
-        score
-        (let ((best (car (most-score board depth posi perf))))
-          (if (= 0 (car best))
-              0
-              (/ (+ score (car best)) 2))))))
+(defun add-random-at-pos-1 (pos value board)
+  (add-random-at-pos board (car pos) (cdr pos) value))
+
+(defun max-depth-score (depth board posi)
+  (if (or (= depth 0) (< posi 0.0001))
+      (max-score board)
+      (let* ((choices (empty-pos board))
+             (scores  (loop for pos in choices sum
+                           (+
+                            (* *posi-4*
+                               (max-depth-score (1- depth)
+                                                (add-random-at-pos-1 pos 4 board)
+                                                (* posi *posi-4*)))
+                            (* *posi-2*
+                               (max-depth-score (1- depth)
+                                                (add-random-at-pos-1 pos 2 board)
+                                                (* posi *posi-2*))))))
+             (n (length choices)))
+        (if (= 0 n) 0 (floor scores n)))))
+
+;; (defun memoize (fn)
+;;   (let ((cache (make-hash-table :test #'equal)))
+;;     #'(lambda (&rest args)
+;;         (multiple-value-bind
+;;               (result exists)
+;;             (gethash args cache)
+;;           (if exists
+;;               result
+;;               (setf (gethash args cache)
+;;                     (apply fn args)))))))
+
+;; (setf (fdefinition 'max-depth-score) (memoize #'max-depth-score))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
