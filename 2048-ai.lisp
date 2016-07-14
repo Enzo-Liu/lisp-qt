@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Thu Jul 14 16:35:18 2016 (+0800)
+;; Last-Updated: Thu Jul 14 17:18:43 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 882
+;;     Update #: 886
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -50,6 +50,7 @@
   (:export #:next-direction
            #:dumb-ai
            #:max-ai
+           #:hurs-new-ai
            #:max-depth-ai
            #:hurs-score-ai
            #:expt-max-ai
@@ -360,6 +361,15 @@
                                        (available-directions board))))
       (decf (cur-depth state)))
     score))
+
+(defclass hurs-new-ai (ai) () (:documentation "an ai based by last"))
+
+(defmethod next-direction ((ai hurs-new-ai) board)
+  (let* ((ops (mapcar (lambda (d) (cons d (n-score-heur-board (move-board d board))))
+                      (available-directions board)))
+         (ordered (sort ops #'> :key #'cdr) )
+         (best (car ordered)))
+    (car best)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 2048.lisp ends here

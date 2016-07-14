@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Thu Jul 14 13:39:53 2016 (+0800)
+;; Last-Updated: Thu Jul 14 17:16:01 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 641
+;;     Update #: 644
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -232,6 +232,7 @@
 (new-ai-slot hurs-score-ai "choose by hurs score")
 (new-ai-slot hurs-depth-ai "choose by hurs score in depth ")
 (new-ai-slot expt-max-ai "copy from nneonneo")
+(new-ai-slot hurs-new-ai "use the heru above")
 
 (defun try-ai (ai)
   (let ((direction (next-direction ai (board *game*))))
@@ -239,8 +240,6 @@
       (move *game* direction)
       (sleep 0.1)
       (try-ai ai))))
-
-(restart-game)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 2048-list-qt.lisp ends here
