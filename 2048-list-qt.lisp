@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Tue Jul 12 19:04:48 2016 (+0800)
+;; Last-Updated: Thu Jul 14 13:39:53 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 639
+;;     Update #: 641
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -231,6 +231,7 @@
 (new-ai-slot max-depth-ai "choose by max value generated in depth ")
 (new-ai-slot hurs-score-ai "choose by hurs score")
 (new-ai-slot hurs-depth-ai "choose by hurs score in depth ")
+(new-ai-slot expt-max-ai "copy from nneonneo")
 
 (defun try-ai (ai)
   (let ((direction (next-direction ai (board *game*))))

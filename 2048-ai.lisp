@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Wed Jul 13 00:09:04 2016 (+0800)
+;; Last-Updated: Thu Jul 14 16:35:18 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 734
+;;     Update #: 882
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -52,6 +52,7 @@
            #:max-ai
            #:max-depth-ai
            #:hurs-score-ai
+           #:expt-max-ai
            #:hurs-depth-ai))
 
 (in-package #:ai-2048)
@@ -60,6 +61,9 @@
 
 (defun available-direction (board direction)
   (move-board direction board))
+
+(defun distinct-tiles (board)
+  (length (remove-duplicates (flatten board))))
 
 (defun available-directions (board)
   (remove-if-not (lambda (d) (available-direction board d)) *actions*))
@@ -213,6 +217,149 @@
 
 ;; (setf (fdefinition 'max-depth-score) (memoize #'max-depth-score))
 
+(defclass expt-max-ai (ai) () (:documentation "an expt ai implementation copy by nneonneo see: https://github.com/nneonneo/2048-ai"))
+
+(defmethod next-direction ((ai expt-max-ai) board)
+  (cdr (n-best-move board)))
+
+(defun n-best-move (board)
+  (let ((choices (mapcar (lambda (d) (cons (n-score-toplevel-move board d) d))
+                         (available-directions board))))
+    (car (sort choices #'> :key #'car))))
+
+(defclass eval-state ()
+  ((trans-table :initform (make-hash-table :test #'equal) :accessor trans-table)
+   (max-depth :initform 0 :accessor max-depth)
+   (cur-depth :initform 0 :accessor cur-depth)
+   (depth-limit :initarg :depth-limit :accessor depth-limit)
+   (moves-evaled :initform 0 :accessor moves-evaled)))
+
+(defun n-encode (board)
+  (apply #'+ (mapcar (lambda (v i) (ceiling (* (expt 65536 i) (n-encode-row v))))
+                     (reverse board) *numlist*))
+  )
+
+(defmethod board-evaled ((state eval-state) board)
+  (gethash (n-encode board) (trans-table state)))
+
+(defmethod evaled-board ((state eval-state) board score)
+  (let ((b (n-encode board)))
+    (setf (gethash b (trans-table state)) (cons b score))))
+
+(defun n-score-toplevel-move (board move)
+  (let ((state (make-instance 'eval-state
+                              :depth-limit (max 3  (- (distinct-tiles board) 2)))))
+    (%n-score-toplevel-move state board move)))
+
+(defun %n-score-toplevel-move (state board move)
+  (let ((new-board (move-board move board)))
+    (if (or (eql new-board board) (null new-board))
+        0
+        (n-score-tilechoose-node state new-board 1.0))))
+
+(defun n-score-helper (board)
+  (apply #'+ (mapcar #'n-score-heur-row board)))
+
+(defun n-score-heur-row (row)
+  (elt  *heur-score-table* (n-encode-row row)))
+
+
+(defun range (max &key (min 0) (step 1))
+  (loop for n from min below max by step
+     collect n))
+
+(defun heur-score-table ()
+  (apply #'vector (mapcar #'row-score (range 65536))))
+
+(defparameter *numlist* (range 100))
+
+(defun n-encode-row (row)
+  (apply #'+ (mapcar (lambda (v i)
+                       (if (= v 0)
+                           0
+                           (ceiling (* (expt 16 i) (+ 1 (log v 2))))))
+                     (reverse row) *numlist*)))
+
+(defun n-decode-row (v)
+  (labels ((decode (value len res)
+             (if (= len 0)
+                 (reverse res)
+                 (multiple-value-bind (q r) (floor value (expt 16 (1- len)))
+                   (decode r (1- len) (cons q res))))))
+    (decode v *row* nil)))
+
+(defun row-score (v)
+  (let* ((row (n-decode-row v))
+         (sum (apply #'+ (mapcar (lambda (v1) (expt 3.5 (if (= v1 0) 0 (log v1 2)))) row)))
+         (empty (length (remove 0 row)))
+         (merges (- (length (remove-if-not (lambda (v) (= v 0)) (squeeze row))) empty))
+         (ml (apply #'+ (maplist (lambda (ls) ()
+                                    (if (< (length ls) 2)
+                                        0
+                                        (if (< (car ls) (cadr ls))
+                                            (abs (- (expt (car ls) 2) (expt (cadr ls) 2)))
+                                            0)))
+                                 row)))
+         (mr (apply #'+ (maplist (lambda (ls) ()
+                                    (if (< (length ls) 2)
+                                        0
+                                        (if (< (car ls) (cadr ls))
+                                            (abs (- (expt (car ls) 2) (expt (cadr ls) 2)))
+                                            0)))
+                                 (reverse row)))))
+    (+ 200000
+       (* -11 sum)
+       (* 1400 merges)
+       (* 270 empty)
+       (* -47 (min ml mr)))))
+
+(defparameter *heur-score-table* (heur-score-table))
+(defun n-score-heur-board (board)
+  (+ (n-score-helper board) (n-score-helper (rotate board)))
+  ;;(hurs-all-score board)
+  )
+
+(defun n-score-tilechoose-node (state board prob)
+  (let ((cache (board-evaled state board))
+        (choices (empty-pos board)))
+    (cond ((or (null choices) (< prob 0.0001) (>= (cur-depth state) (depth-limit state)))
+           (setf (max-depth state) (max (cur-depth state) (max-depth state)))
+           (n-score-heur-board board))
+          ((and (< (cur-depth state) 15) cache ;(< (car cache) (cur-depth state))
+                )
+           (cdr cache))
+          (T
+           (let* ((len (length choices))
+                  (n-prob (float (/ prob len)))
+                  (score (float
+                          (/
+                           (apply #'+
+                                  (mapcar (lambda (pos)
+                                            (n-random-pos-score state board pos n-prob))
+                                          choices))
+                           len))))
+             (if (< (cur-depth state) 15)
+                 (evaled-board state board score))
+             score)))))
+
+(defun n-random-pos-score (state board pos prob)
+  (+ (* *posi-4* (n-score-move-node state
+                                    (add-random-at-pos-1 pos 4 board) (* prob *posi-4*)))
+     (* *posi-2* (n-score-move-node state
+                                    (add-random-at-pos-1 pos 2 board) (* prob *posi-2*)))))
+
+(defun n-score-move-node (state board prob)
+  (let ((choices (available-directions board))
+        (score 0))
+    (when choices
+      (incf (cur-depth state))
+      (setf score (apply #'max (mapcar (lambda (d)
+                                         (n-score-tilechoose-node state
+                                                                  (move-board d board)
+                                                                  prob))
+                                       (available-directions board))))
+      (decf (cur-depth state)))
+    score))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; 2048.lisp ends here
