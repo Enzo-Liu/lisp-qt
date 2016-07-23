@@ -7,9 +7,9 @@
 ;; Created: Sun Jul 10 12:19:45 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Thu Jul 14 17:18:43 2016 (+0800)
+;; Last-Updated: Sat Jul 23 12:55:02 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 886
+;;     Update #: 894
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -44,7 +44,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Code:
-(load "./2048.lisp")
 (defpackage #:ai-2048
   (:use #:cl #:common-2048 #:game-2048)
   (:export #:next-direction
@@ -249,7 +248,7 @@
 
 (defun n-score-toplevel-move (board move)
   (let ((state (make-instance 'eval-state
-                              :depth-limit (max 3  (- (distinct-tiles board) 2)))))
+                              :depth-limit 3 )))
     (%n-score-toplevel-move state board move)))
 
 (defun %n-score-toplevel-move (state board move)
@@ -295,18 +294,18 @@
          (empty (length (remove 0 row)))
          (merges (- (length (remove-if-not (lambda (v) (= v 0)) (squeeze row))) empty))
          (ml (apply #'+ (maplist (lambda (ls) ()
-                                    (if (< (length ls) 2)
-                                        0
-                                        (if (< (car ls) (cadr ls))
-                                            (abs (- (expt (car ls) 2) (expt (cadr ls) 2)))
-                                            0)))
+                                         (if (< (length ls) 2)
+                                             0
+                                             (if (< (car ls) (cadr ls))
+                                                 (abs (- (expt (car ls) 2) (expt (cadr ls) 2)))
+                                                 0)))
                                  row)))
          (mr (apply #'+ (maplist (lambda (ls) ()
-                                    (if (< (length ls) 2)
-                                        0
-                                        (if (< (car ls) (cadr ls))
-                                            (abs (- (expt (car ls) 2) (expt (cadr ls) 2)))
-                                            0)))
+                                         (if (< (length ls) 2)
+                                             0
+                                             (if (< (car ls) (cadr ls))
+                                                 (abs (- (expt (car ls) 2) (expt (cadr ls) 2)))
+                                                 0)))
                                  (reverse row)))))
     (+ 200000
        (* -11 sum)

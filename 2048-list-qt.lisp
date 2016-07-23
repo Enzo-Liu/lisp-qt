@@ -7,9 +7,9 @@
 ;; Created: Sat Jul  9 07:09:09 2016 (+0800)
 ;; Version:
 ;; Package-Requires: ()
-;; Last-Updated: Thu Jul 14 17:16:01 2016 (+0800)
+;; Last-Updated: Sat Jul 23 12:54:48 2016 (+0800)
 ;;           By: enzo liu
-;;     Update #: 644
+;;     Update #: 645
 ;; URL:
 ;; Doc URL:
 ;; Keywords:
@@ -44,10 +44,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;;; Code:
-
-(ql:quickload '(qtools qtcore qtgui))
-(load "./2048.lisp")
-(load "./2048-ai.lisp")
 
 (defpackage #:qt-2048
   (:use #:cl+qt  :trivial-main-thread #:game-2048 #:ai-2048)
